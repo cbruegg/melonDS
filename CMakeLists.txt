@@ -35,9 +35,12 @@ add_link_options(-no-pie)
 option(BUILD_LIBUI "Build libui frontend" ON)
 
 add_subdirectory(src)
+add_subdirectory(src/server)
 
 if (BUILD_LIBUI)
 	add_subdirectory(src/libui_sdl)
+elseif(BUILD_SERVER)
+	add_subdirectory(src/server)
 endif()
 
 configure_file(
