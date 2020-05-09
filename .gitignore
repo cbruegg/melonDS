@@ -8,4 +8,7 @@ melon_grc.c
 melon_grc.h
 cmake-build
 cmake-build-debug
+cmake-build-debug-server
 .idea
+cmake-build-release
+cmake-build-release-server
