@@ -29,3 +29,18 @@ void NamedInPipe::openIfRequired() {
         this->fd = open(name, O_RDONLY);
     }
 }
+
+std::string NamedInPipe::readLine() {
+    this->openIfRequired();
+
+    char c;
+    std::string line;
+    while (read(fd, &c, 1) == 1) {
+        if (c != '\n') {
+            line += c;
+        } else {
+            return line;
+        }
+    }
+    return line;
+}

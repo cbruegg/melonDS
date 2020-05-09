@@ -9,6 +9,7 @@
 #else
 
 #include <unistd.h>
+#include <atomic>
 
 #endif // _WIN32
 
@@ -19,6 +20,7 @@
 #include "NamedOutPipe.h"
 #include "NamedInPipe.h"
 #include "Semaphore.h"
+#include "CommandHandler.h"
 
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::milliseconds ms;
@@ -62,15 +64,15 @@ int main(int argc, char **argv) {
     biosDirPath = std::string(argv[1]);
     NamedOutPipe screenPipe(argv[2]);
     NamedOutPipe audioPipe(argv[3]);
-//    NamedInPipe inputPipe(argv[4]);
+    NamedInPipe inputPipe(argv[4]);
     std::string romPath(argv[5]);
 
-    auto speedup = 1.0;
+    std::atomic<double> speedup(1.0);
 
     NDS::Init();
     GPU3D::InitRenderer(false);
 
-    const auto ndsIdx = romPath.find_last_of(".nds");
+    const auto ndsIdx = romPath.rfind(".nds");
     if (ndsIdx == -1) {
         std::cerr << "ROM needs to have .nds extension!" << std::endl;
         return 1;
@@ -101,6 +103,51 @@ int main(int argc, char **argv) {
             auto end = Time::now();
             ms elapsed = std::chrono::duration_cast<ms>(end - start);
             sleepCp(videoFrameDurationMs - elapsed.count());
+        }
+    });
+
+    std::thread commandReader([&inputPipe, &speedup]() {
+        while (true) {
+            const auto line = inputPipe.readLine();
+            const auto command = parseCommand(line);
+            const auto commandType = &command.commandType;
+
+            if (commandType == &CommandType::Stop) {
+                std::cout << "Received Stop" << std::endl;
+            } else if (commandType == &CommandType::Pause) {
+                std::cout << "Received Pause" << std::endl;
+            } else if (commandType == &CommandType::Resume) {
+                std::cout << "Received Resume" << std::endl;
+            } else if (commandType == &CommandType::KeyPress) {
+                std::cout << "Received KeyPress" << std::endl;
+            } else if (commandType == &CommandType::KeyRelease) {
+                std::cout << "Received KeyRelease" << std::endl;
+            } else if (commandType == &CommandType::Touch) {
+                std::cout << "Received Touch" << std::endl;
+            } else if (commandType == &CommandType::TouchRelease) {
+                std::cout << "Received TouchRelease" << std::endl;
+            } else if (commandType == &CommandType::ResetInput) {
+                std::cout << "Received ResetInput" << std::endl;
+            } else if (commandType == &CommandType::SaveGameSave) {
+                std::cout << "Received SaveGameSave" << std::endl;
+            } else if (commandType == &CommandType::LoadGameSave) {
+                std::cout << "Received LoadGameSave" << std::endl;
+            } else if (commandType == &CommandType::SaveState) {
+                std::cout << "Received SaveState" << std::endl;
+            } else if (commandType == &CommandType::LoadState) {
+                std::cout << "Received LoadState" << std::endl;
+            } else if (commandType == &CommandType::AddCheat) {
+                std::cout << "Received AddCheat" << std::endl;
+            } else if (commandType == &CommandType::ResetCheats) {
+                std::cout << "Received ResetCheats" << std::endl;
+            } else if (commandType == &CommandType::SetSpeed) {
+                const auto data = static_cast<SetSpeedCommandData*>(command.commandData);
+                std::cout << "Received SetSpeed " << data->speed << std::endl;
+                speedup = data->speed;
+                delete data;
+            } else if (commandType == &CommandType::Malformed) {
+                std::cerr << "Received malformed command!" << std::endl;
+            }
         }
     });
 
@@ -139,11 +186,11 @@ int main(int argc, char **argv) {
         sleepCp(emulationTargetFrameDurationMs / speedup - elapsed.count());
     }
 
-    // TODO Kill writer thread
+    // TODO Kill threads
 
     screenPipe.closePipe();
     audioPipe.closePipe();
-//    inputPipe.closePipe();
+    inputPipe.closePipe();
 
 }
 

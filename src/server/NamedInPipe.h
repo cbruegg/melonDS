@@ -7,6 +7,7 @@
 
 
 #include <cstdio>
+#include <string>
 #include "../types.h"
 
 class NamedInPipe {
@@ -14,6 +15,8 @@ public:
     explicit NamedInPipe(const char *name);
 
     void readData(void *buf, size_t len);
+
+    std::string readLine();
 
     void closePipe() const;
 

@@ -1,6 +1,6 @@
 project(server)
 
-SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h NamedOutPipe.cpp NamedOutPipe.h NamedInPipe.cpp NamedInPipe.h Semaphore.cpp Semaphore.h)
+SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h NamedOutPipe.cpp NamedOutPipe.h NamedInPipe.cpp NamedInPipe.h Semaphore.cpp Semaphore.h CommandHandler.cpp CommandHandler.h)
 
 
 if (WIN32)
