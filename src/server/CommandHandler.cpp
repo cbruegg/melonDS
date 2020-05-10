@@ -27,7 +27,6 @@ const std::vector<const CommandType *> CommandType::VALUES = {&CommandType::Stop
                                                               &CommandType::Resume,
                                                               &CommandType::ActivateInput,
                                                               &CommandType::DeactivateInput,
-                                                              &CommandType::Touch, &CommandType::TouchRelease,
                                                               &CommandType::ResetInput, &CommandType::SaveGameSave,
                                                               &CommandType::LoadGameSave, &CommandType::SaveState,
                                                               &CommandType::LoadState,
