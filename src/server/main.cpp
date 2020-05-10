@@ -31,6 +31,9 @@ const int videoFrameDurationMs = 1000 / videoFps;
 const int emulationTargetFps = 60;
 const int emulationTargetFrameDurationMs = 1000 / emulationTargetFps;
 
+const unsigned int MelonDSGameInputTouchScreenX = 4096;
+const unsigned int MelonDSGameInputTouchScreenY = 8192;
+
 void sleepCp(long milliseconds) {
     if (milliseconds <= 0) {
         return;
@@ -68,6 +71,10 @@ int main(int argc, char **argv) {
     std::string romPath(argv[5]);
 
     std::atomic<double> speedup(1.0);
+    std::atomic<bool> stop(false);
+    std::atomic<uint32_t> activatedInputs(0);
+    std::atomic<u16> touchX(0);
+    std::atomic<u16> touchY(0);
 
     NDS::Init();
     GPU3D::InitRenderer(false);
@@ -91,8 +98,8 @@ int main(int argc, char **argv) {
 
     NDS::RunFrame();
 
-    std::thread writer([&screenPipe, &readyScreenBuffer, &audioPipe, &audioBuffer, &bufMutex]() {
-        while (true) {
+    std::thread writer([&screenPipe, &readyScreenBuffer, &audioPipe, &audioBuffer, &bufMutex, &stop]() {
+        while (!stop) {
             auto start = Time::now();
             bufMutex.lock();
             {
@@ -106,28 +113,51 @@ int main(int argc, char **argv) {
         }
     });
 
-    std::thread commandReader([&inputPipe, &speedup]() {
-        while (true) {
+    std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &touchX, &touchY]() {
+        while (!stop) {
             const auto line = inputPipe.readLine();
             const auto command = parseCommand(line);
             const auto commandType = &command.commandType;
 
             if (commandType == &CommandType::Stop) {
                 std::cout << "Received Stop" << std::endl;
+                stop = true;
             } else if (commandType == &CommandType::Pause) {
                 std::cout << "Received Pause" << std::endl;
             } else if (commandType == &CommandType::Resume) {
                 std::cout << "Received Resume" << std::endl;
-            } else if (commandType == &CommandType::KeyPress) {
-                std::cout << "Received KeyPress" << std::endl;
-            } else if (commandType == &CommandType::KeyRelease) {
-                std::cout << "Received KeyRelease" << std::endl;
-            } else if (commandType == &CommandType::Touch) {
-                std::cout << "Received Touch" << std::endl;
-            } else if (commandType == &CommandType::TouchRelease) {
-                std::cout << "Received TouchRelease" << std::endl;
+            } else if (commandType == &CommandType::ActivateInput) {
+                const auto data = static_cast<ActivateInputCommandData *>(command.commandData);
+                std::cout << "Received ActivateInput " << data->input << " " << data->value << std::endl;
+                activatedInputs |= (uint32_t) data->input;
+
+                switch (data->input) {
+                    case MelonDSGameInputTouchScreenX:
+                        touchX = data->value * (256 - 1);
+                        break;
+                    case MelonDSGameInputTouchScreenY:
+                        touchY = data->value * (192 - 1);
+                        break;
+                }
+                delete data;
+            } else if (commandType == &CommandType::DeactivateInput) {
+                const auto data = static_cast<DeactivateInputCommandData *>(command.commandData);
+                std::cout << "Received DeactivateInput " << data->input << std::endl;
+                activatedInputs &= ~((uint32_t) data->input);
+                switch (data->input) {
+                    case MelonDSGameInputTouchScreenX:
+                        touchX = 0;
+                        break;
+                    case MelonDSGameInputTouchScreenY:
+                        touchY = 0;
+                        break;
+                }
+                delete data;
             } else if (commandType == &CommandType::ResetInput) {
                 std::cout << "Received ResetInput" << std::endl;
+                activatedInputs = 0;
+                touchX = 0;
+                touchY = 0;
             } else if (commandType == &CommandType::SaveGameSave) {
                 std::cout << "Received SaveGameSave" << std::endl;
             } else if (commandType == &CommandType::LoadGameSave) {
@@ -141,7 +171,7 @@ int main(int argc, char **argv) {
             } else if (commandType == &CommandType::ResetCheats) {
                 std::cout << "Received ResetCheats" << std::endl;
             } else if (commandType == &CommandType::SetSpeed) {
-                const auto data = static_cast<SetSpeedCommandData*>(command.commandData);
+                const auto data = static_cast<SetSpeedCommandData *>(command.commandData);
                 std::cout << "Received SetSpeed " << data->speed << std::endl;
                 speedup = data->speed;
                 delete data;
@@ -151,9 +181,35 @@ int main(int argc, char **argv) {
         }
     });
 
-    while (true) {
-        // TODO Apply input
+    while (!stop) {
         auto start = Time::now();
+
+        auto inputs = activatedInputs.load();
+        for (uint8_t i = 0; i < 12; i++)
+        {
+            uint8_t key = i > 9 ? i + 6 : i;
+            bool isActivated = ((inputs >> i) & 1u) != 0;
+
+            if (isActivated)
+            {
+                NDS::PressKey(key);
+            }
+            else
+            {
+                NDS::ReleaseKey(key);
+            }
+        }
+
+        if (inputs & MelonDSGameInputTouchScreenX || inputs & MelonDSGameInputTouchScreenY)
+        {
+            NDS::TouchScreen(touchX, touchY);
+            NDS::PressKey(16 + 6);
+        }
+        else
+        {
+            NDS::ReleaseScreen();
+            NDS::ReleaseKey(16 + 6);
+        }
 
         NDS::RunFrame();
 
@@ -186,12 +242,9 @@ int main(int argc, char **argv) {
         sleepCp(emulationTargetFrameDurationMs / speedup - elapsed.count());
     }
 
-    // TODO Kill threads
-
     screenPipe.closePipe();
     audioPipe.closePipe();
     inputPipe.closePipe();
-
 }
 
 namespace Platform {

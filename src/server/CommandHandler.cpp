@@ -12,10 +12,8 @@ CommandType::CommandType(std::string id) : id(std::move(id)) {}
 const CommandType CommandType::Stop = CommandType("Stop");
 const CommandType CommandType::Pause = CommandType("Pause");
 const CommandType CommandType::Resume = CommandType("Resume");
-const CommandType CommandType::KeyPress = CommandType("KeyPress");
-const CommandType CommandType::KeyRelease = CommandType("KeyRelease");
-const CommandType CommandType::Touch = CommandType("Touch");
-const CommandType CommandType::TouchRelease = CommandType("TouchRelease");
+const CommandType CommandType::ActivateInput = CommandType("ActivateInput");
+const CommandType CommandType::DeactivateInput = CommandType("DeactivateInput");
 const CommandType CommandType::ResetInput = CommandType("ResetInput");
 const CommandType CommandType::SaveGameSave = CommandType("SaveGameSave");
 const CommandType CommandType::LoadGameSave = CommandType("LoadGameSave");
@@ -27,7 +25,8 @@ const CommandType CommandType::SetSpeed = CommandType("SetSpeed");
 const CommandType CommandType::Malformed = CommandType("");
 const std::vector<const CommandType *> CommandType::VALUES = {&CommandType::Stop, &CommandType::Pause,
                                                               &CommandType::Resume,
-                                                              &CommandType::KeyPress, &CommandType::KeyRelease,
+                                                              &CommandType::ActivateInput,
+                                                              &CommandType::DeactivateInput,
                                                               &CommandType::Touch, &CommandType::TouchRelease,
                                                               &CommandType::ResetInput, &CommandType::SaveGameSave,
                                                               &CommandType::LoadGameSave, &CommandType::SaveState,
@@ -69,14 +68,12 @@ Command parseCommand(const std::string &line) {
         return Command(*commandType, nullptr);
     } else if (commandType == &CommandType::Resume) {
         return Command(*commandType, nullptr);
-    } else if (commandType == &CommandType::KeyPress) {
-        return Command(*commandType, nullptr);
-    } else if (commandType == &CommandType::KeyRelease) {
-        return Command(*commandType, nullptr);
-    } else if (commandType == &CommandType::Touch) {
-        return Command(*commandType, nullptr);
-    } else if (commandType == &CommandType::TouchRelease) {
-        return Command(*commandType, nullptr);
+    } else if (commandType == &CommandType::ActivateInput) {
+        auto commandData = new ActivateInputCommandData(std::stoi(cmd.at(1)), std::stod(cmd.at(2)));
+        return Command(*commandType, commandData);
+    } else if (commandType == &CommandType::DeactivateInput) {
+        auto commandData = new DeactivateInputCommandData(std::stoi(cmd.at(1)));
+        return Command(*commandType, commandData);
     } else if (commandType == &CommandType::ResetInput) {
         return Command(*commandType, nullptr);
     } else if (commandType == &CommandType::SaveGameSave) {
@@ -92,7 +89,6 @@ Command parseCommand(const std::string &line) {
     } else if (commandType == &CommandType::ResetCheats) {
         return Command(*commandType, nullptr);
     } else if (commandType == &CommandType::SetSpeed) {
-        std::cout << "DEBUG: Parsed SetSpeed" << std::endl;
         auto commandData = new SetSpeedCommandData(std::stod(cmd.at(1)));
         return Command(*commandType, commandData);
     } else if (commandType == &CommandType::Malformed) {
@@ -104,3 +100,7 @@ Command parseCommand(const std::string &line) {
 
 
 SetSpeedCommandData::SetSpeedCommandData(const double speed) : speed(speed) {}
+
+ActivateInputCommandData::ActivateInputCommandData(const int input, const double value) : input(input), value(value) {}
+
+DeactivateInputCommandData::DeactivateInputCommandData(const int value) : input(value) {}

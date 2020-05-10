@@ -15,10 +15,8 @@ public:
     static const CommandType Stop;
     static const CommandType Pause;
     static const CommandType Resume;
-    static const CommandType KeyPress;
-    static const CommandType KeyRelease;
-    static const CommandType Touch;
-    static const CommandType TouchRelease;
+    static const CommandType ActivateInput;
+    static const CommandType DeactivateInput;
     static const CommandType ResetInput;
     static const CommandType SaveGameSave;
     static const CommandType LoadGameSave;
@@ -48,6 +46,21 @@ public:
     const double speed;
 
     explicit SetSpeedCommandData(double speed);
+};
+
+class ActivateInputCommandData {
+public:
+    const int input;
+    const double value;
+
+    ActivateInputCommandData(const int input, const double value);
+};
+
+class DeactivateInputCommandData {
+public:
+    const int input;
+
+    DeactivateInputCommandData(const int value);
 };
 
 Command parseCommand(const std::string &line);
