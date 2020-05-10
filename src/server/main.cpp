@@ -51,8 +51,8 @@ void sleepCp(long milliseconds) {
 static std::string biosDirPath;
 
 int main(int argc, char **argv) {
-    if (argc < 6) {
-        std::cerr << "Usage: biosDirPath screenPipePath audioPipePath inputPipePath romPath" << std::endl;
+    if (argc < 7) {
+        std::cerr << "Usage: biosDirPath screenPipePath audioPipePath inputPipePath romPath saveGamePath" << std::endl;
     }
 
     std::mutex bufMutex;
@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
     NamedOutPipe audioPipe(argv[3]);
     NamedInPipe inputPipe(argv[4]);
     std::string romPath(argv[5]);
+    std::string saveGamePath(argv[6]);
 
     std::atomic<double> speedup(1.0);
     std::atomic<bool> stop(false);
@@ -85,8 +86,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::string romDsvPath = romPath.substr(0, ndsIdx) + ".dsv";
-    if (!NDS::LoadROM(romPath.c_str(), romDsvPath.c_str(), true)) {
+    if (!NDS::LoadROM(romPath.c_str(), saveGamePath.c_str(), true)) {
         std::cerr << "Failed to load ROM!" << std::endl;
         return 1;
     }
