@@ -7,7 +7,6 @@
 
 
 #include <cstdio>
-#include "queue.h"
 #include "../types.h"
 
 #ifdef _WIN32

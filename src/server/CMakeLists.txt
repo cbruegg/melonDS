@@ -1,6 +1,6 @@
 project(server)
 
-SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h OutSocket.cpp OutSocket.h InSocket.cpp InSocket.h Semaphore.cpp Semaphore.h CommandHandler.cpp CommandHandler.h Queue.cpp Queue.h)
+SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h OutSocket.cpp OutSocket.h InSocket.cpp InSocket.h Semaphore.cpp Semaphore.h CommandHandler.cpp CommandHandler.h)
 
 
 if (WIN32)
