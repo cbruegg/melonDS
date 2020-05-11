@@ -28,24 +28,21 @@ public:
 
     void flushPipe();
 
-#ifdef _WIN32
     int port;
-#endif
 
 private:
 #ifdef _WIN32
     SOCKET listenSock;
     SOCKET clientSock;
-
-    void ensureAcceptedClient();
-    void resetAndAcceptNewClient();
 #else
-    const int fd;
+    int listenSock;
+    int clientSock;
 #endif
 
-    void openIfRequired();
+    void ensureAcceptedClient();
 
-    const char *name;
+    void resetAndAcceptNewClient();
+
 };
 
 

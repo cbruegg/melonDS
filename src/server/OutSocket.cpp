@@ -2,6 +2,7 @@
 // Created by mail on 08/05/2020.
 //
 
+#include <iostream>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -10,13 +11,18 @@
 #include <windows.h>
 #include <Ws2tcpip.h>
 #include <cstdint>
-#include <iostream>
 #include <thread>
 
 #else
+
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <zconf.h>
+#include <sys/socket.h>
+#include <stdexcept>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #endif
 
 #include "OutSocket.h"
@@ -63,52 +69,89 @@ OutSocket::OutSocket() {
     this->listenSock = listenSock;
     this->clientSock = INVALID_SOCKET;
 #else
-    mkfifo(name, 0666);
-    this->fd = -1;
+    const auto listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listenSock == -1) {
+        int lastError = errno;
+        std::cerr << "Could not create socket, error " << lastError << std::endl;
+        throw std::runtime_error("Could not create socket");
+    }
+
+    sockaddr_in saServer{};
+    saServer.sin_family = AF_INET;
+    saServer.sin_addr.s_addr = inet_addr("127.0.0.1");
+    saServer.sin_port = htons(0);
+
+    if (bind(listenSock, reinterpret_cast<const sockaddr *>(&saServer), sizeof(saServer)) == -1) {
+        int lastError = errno;
+        std::cerr << "Could not bind socket, error " << lastError << std::endl;
+        throw std::runtime_error("Could not bind socket");
+    }
+
+    int saServerLen = sizeof(saServer);
+    if (getsockname(listenSock, (struct sockaddr *) &saServer, reinterpret_cast<socklen_t *>(&saServerLen)) == 0) {
+        port = ntohs(saServer.sin_port);
+    } else {
+        int lastError = errno;
+        std::cerr << "Could not detect port, error " << lastError << std::endl;
+        close(listenSock);
+        throw std::runtime_error("Could not detect port");
+    }
+
+    if (listen(listenSock, 1) == -1) {
+        int lastError = errno;
+        std::cerr << "Could not listen on socket, error " << lastError << std::endl;
+        close(listenSock);
+        throw std::runtime_error("Could not listen on socket");
+    }
+
+    this->listenSock = listenSock;
+    this->clientSock = -1;
 #endif
 }
 
-#ifdef _WIN32
-
 void OutSocket::ensureAcceptedClient() {
-    while (clientSock == INVALID_SOCKET) {
+    while (clientSock == -1) {
         clientSock = accept(this->listenSock, nullptr, nullptr);
     }
 }
 
 void OutSocket::resetAndAcceptNewClient() {
-    if (clientSock != INVALID_SOCKET) {
+    if (clientSock != -1) {
+#ifdef _WIN32
         closesocket(clientSock);
-        clientSock = INVALID_SOCKET;
+#else
+        close(clientSock);
+#endif
+        clientSock = -1;
     }
     ensureAcceptedClient();
 }
 
-#endif
-
 void OutSocket::writeData(u32 *data, size_t len) {
-    this->openIfRequired();
 #ifdef _WIN32
     ensureAcceptedClient();
-    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(u32) / sizeof(char), 0) ==
-           SOCKET_ERROR) {
+    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(u32) / sizeof(char), 0) == SOCKET_ERROR) {
         resetAndAcceptNewClient();
     }
 #else
-    write(this->fd, data, len);
+    ensureAcceptedClient();
+    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(u32) / sizeof(char), 0) == -1) {
+        resetAndAcceptNewClient();
+    }
 #endif
 }
 
 void OutSocket::writeData(int16_t *data, size_t len) {
-    this->openIfRequired();
 #ifdef _WIN32
     ensureAcceptedClient();
-    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(int16_t) / sizeof(char), 0) ==
-           SOCKET_ERROR) {
+    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(int16_t) / sizeof(char), 0) == SOCKET_ERROR) {
         resetAndAcceptNewClient();
     }
 #else
-    write(this->fd, data, len);
+    ensureAcceptedClient();
+    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(int16_t) / sizeof(char), 0) == -1) {
+        resetAndAcceptNewClient();
+    }
 #endif
 }
 
@@ -123,19 +166,17 @@ void OutSocket::closePipe() {
         listenSock = INVALID_SOCKET;
     }
 #else
-    close(this->fd);
+    if (clientSock != -1) {
+        close(clientSock);
+        clientSock = -1;
+    }
+    if (listenSock != -1) {
+        close(listenSock);
+        listenSock = -1;
+    }
 #endif
 }
 
 void OutSocket::flushPipe() {
     // TODO ?
-}
-
-void OutSocket::openIfRequired() {
-#ifdef _WIN32
-#else
-    if (this->fd == -1) {
-        this->fd = open(this->name, O_WRONLY);
-    }
-#endif
 }

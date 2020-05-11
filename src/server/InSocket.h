@@ -24,24 +24,21 @@ public:
 
     void closePipe();
 
-#ifdef _WIN32
     int port;
-#endif
 
 
 private:
 #ifdef _WIN32
     SOCKET listenSock;
     SOCKET clientSock;
+#else
+    int listenSock;
+    int clientSock;
+#endif
 
     void ensureAcceptedClient();
-    void resetAndAcceptNewClient();
-#else
-    const int fd;
-#endif
-    const char *name;
 
-    void openIfRequired();
+    void resetAndAcceptNewClient();
 };
 
 
