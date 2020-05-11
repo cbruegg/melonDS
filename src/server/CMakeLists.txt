@@ -1,11 +1,13 @@
 project(server)
 
-SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h NamedOutPipe.cpp NamedOutPipe.h NamedInPipe.cpp NamedInPipe.h Semaphore.cpp Semaphore.h CommandHandler.cpp CommandHandler.h)
+SET(SOURCES_SERVER main.cpp PlatformConfig.cpp PlatformConfig.h OutSocket.cpp OutSocket.h InSocket.cpp InSocket.h Semaphore.cpp Semaphore.h CommandHandler.cpp CommandHandler.h Queue.cpp Queue.h)
 
 
 if (WIN32)
     set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
 find_package (Threads)
 add_executable(melonDS-server ${SOURCES_SERVER})

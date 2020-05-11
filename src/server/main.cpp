@@ -3,22 +3,22 @@
 #include <mutex>
 #include <condition_variable>
 #include <cstring>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-
 #include <unistd.h>
 #include <atomic>
 
+#ifdef _WIN32
+
+#include <windows.h>
+
+#else
 #endif // _WIN32
 
 #include "../NDS.h"
 #include "../GPU3D.h"
 #include "../SPU.h"
 #include "../GPU.h"
-#include "NamedOutPipe.h"
-#include "NamedInPipe.h"
+#include "OutSocket.h"
+#include "InSocket.h"
 #include "Semaphore.h"
 #include "CommandHandler.h"
 
@@ -53,7 +53,13 @@ static std::string biosDirPath;
 int main(int argc, char **argv) {
     if (argc < 7) {
         std::cerr << "Usage: biosDirPath screenPipePath audioPipePath inputPipePath romPath saveGamePath" << std::endl;
+        return 1;
     }
+
+#ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
     std::mutex bufMutex;
 
@@ -65,9 +71,6 @@ int main(int argc, char **argv) {
     int16_t audioBuffer[audioBufferSize] = {0}; // PCM16, 32768 Hz, 2 Channels, Interleaved
 
     biosDirPath = std::string(argv[1]);
-    NamedOutPipe screenPipe(argv[2]);
-    NamedOutPipe audioPipe(argv[3]);
-    NamedInPipe inputPipe(argv[4]);
     std::string romPath(argv[5]);
     std::string saveGamePath(argv[6]);
 
@@ -90,6 +93,13 @@ int main(int argc, char **argv) {
         std::cerr << "Failed to load ROM!" << std::endl;
         return 1;
     }
+
+    OutSocket screenPipe;
+    OutSocket audioPipe;
+    InSocket inputPipe;
+    std::cout << "screen: :" << screenPipe.port << std::endl;
+    std::cout << "audio: :" << audioPipe.port << std::endl;
+    std::cout << "input: :" << inputPipe.port << std::endl;
 
 //    NDS::LoadBIOS();
 
@@ -116,6 +126,10 @@ int main(int argc, char **argv) {
     std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &touchX, &touchY]() {
         while (!stop) {
             const auto line = inputPipe.readLine();
+            if (line.empty()) {
+                continue;
+            }
+
             const auto command = parseCommand(line);
             const auto commandType = &command.commandType;
 
@@ -185,28 +199,21 @@ int main(int argc, char **argv) {
         auto start = Time::now();
 
         auto inputs = activatedInputs.load();
-        for (uint8_t i = 0; i < 12; i++)
-        {
+        for (uint8_t i = 0; i < 12; i++) {
             uint8_t key = i > 9 ? i + 6 : i;
             bool isActivated = ((inputs >> i) & 1u) != 0;
 
-            if (isActivated)
-            {
+            if (isActivated) {
                 NDS::PressKey(key);
-            }
-            else
-            {
+            } else {
                 NDS::ReleaseKey(key);
             }
         }
 
-        if (inputs & MelonDSGameInputTouchScreenX || inputs & MelonDSGameInputTouchScreenY)
-        {
+        if (inputs & MelonDSGameInputTouchScreenX || inputs & MelonDSGameInputTouchScreenY) {
             NDS::TouchScreen(touchX, touchY);
             NDS::PressKey(16 + 6);
-        }
-        else
-        {
+        } else {
             NDS::ReleaseScreen();
             NDS::ReleaseKey(16 + 6);
         }
@@ -245,6 +252,10 @@ int main(int argc, char **argv) {
     screenPipe.closePipe();
     audioPipe.closePipe();
     inputPipe.closePipe();
+
+#ifdef _WIN32
+    WSACleanup();
+#endif
 }
 
 namespace Platform {
