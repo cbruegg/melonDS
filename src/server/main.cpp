@@ -50,8 +50,8 @@ void sleepCp(long milliseconds) {
 static std::string biosDirPath;
 
 int main(int argc, char **argv) {
-    if (argc < 7) {
-        std::cerr << "Usage: biosDirPath screenPipePath audioPipePath inputPipePath romPath saveGamePath" << std::endl;
+    if (argc < 4) {
+        std::cerr << "Usage: biosDirPath romPath saveGamePath" << std::endl;
         return 1;
     }
 
@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
     int16_t audioBuffer[audioBufferSize] = {0}; // PCM16, 32768 Hz, 2 Channels, Interleaved
 
     biosDirPath = std::string(argv[1]);
-    std::string romPath(argv[5]);
-    std::string saveGamePath(argv[6]);
+    std::string romPath(argv[2]);
+    std::string saveGamePath(argv[3]);
 
     std::atomic<double> speedup(1.0);
     std::atomic<bool> stop(false);
@@ -96,9 +96,9 @@ int main(int argc, char **argv) {
     Socket screenPipe;
     Socket audioPipe;
     Socket inputPipe;
-    std::cout << "screen: :" << screenPipe.port << std::endl;
-    std::cout << "audio: :" << audioPipe.port << std::endl;
-    std::cout << "input: :" << inputPipe.port << std::endl;
+    std::cout << "[SERVOUT] screen: :" << screenPipe.port << std::endl;
+    std::cout << "[SERVOUT] audio: :" << audioPipe.port << std::endl;
+    std::cout << "[SERVOUT] input: :" << inputPipe.port << std::endl;
 
 //    NDS::LoadBIOS();
 
