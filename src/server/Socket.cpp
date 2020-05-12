@@ -24,7 +24,7 @@
 
 #endif
 
-#include "OutSocket.h"
+#include "Socket.h"
 
 #ifdef _WIN32
 #define LASTERR() WSAGetLastError()
@@ -38,7 +38,7 @@ typedef int SOCKET;
 
 // TODO Error handling
 
-OutSocket::OutSocket() {
+Socket::Socket() {
     SOCKET listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSock == INVALID_SOCKET) {
         int lastError = LASTERR();
@@ -84,13 +84,13 @@ OutSocket::OutSocket() {
     this->clientSock = INVALID_SOCKET;
 }
 
-void OutSocket::ensureAcceptedClient() {
+void Socket::ensureAcceptedClient() {
     while (clientSock == -1) {
         clientSock = accept(this->listenSock, nullptr, nullptr);
     }
 }
 
-void OutSocket::resetAndAcceptNewClient() {
+void Socket::resetAndAcceptNewClient() {
     if (clientSock != -1) {
         closesocket(clientSock);
         clientSock = -1;
@@ -98,7 +98,7 @@ void OutSocket::resetAndAcceptNewClient() {
     ensureAcceptedClient();
 }
 
-void OutSocket::writeData(u32 *data, size_t len) {
+void Socket::writeData(u32 *data, size_t len) {
     ensureAcceptedClient();
     while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(u32) / sizeof(char), 0) ==
            SOCKET_ERROR) {
@@ -106,7 +106,7 @@ void OutSocket::writeData(u32 *data, size_t len) {
     }
 }
 
-void OutSocket::writeData(int16_t *data, size_t len) {
+void Socket::writeData(int16_t *data, size_t len) {
     ensureAcceptedClient();
     while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(int16_t) / sizeof(char), 0) ==
            SOCKET_ERROR) {
@@ -114,7 +114,7 @@ void OutSocket::writeData(int16_t *data, size_t len) {
     }
 }
 
-void OutSocket::closePipe() {
+void Socket::closePipe() {
     if (clientSock != INVALID_SOCKET) {
         closesocket(clientSock);
         clientSock = INVALID_SOCKET;
@@ -125,6 +125,18 @@ void OutSocket::closePipe() {
     }
 }
 
-void OutSocket::flushPipe() {
+void Socket::flushPipe() {
     // TODO ?
+}
+
+std::string Socket::readLine() {
+    std::string line;
+
+    char c = '0';
+    do {
+        while (recv(clientSock, &c, 1, 0) == SOCKET_ERROR) {
+            resetAndAcceptNewClient();
+        }
+    } while (c != '\n');
+    return line;
 }

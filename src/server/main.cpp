@@ -17,8 +17,7 @@
 #include "../GPU3D.h"
 #include "../SPU.h"
 #include "../GPU.h"
-#include "OutSocket.h"
-#include "InSocket.h"
+#include "Socket.h"
 #include "Semaphore.h"
 #include "CommandHandler.h"
 
@@ -94,9 +93,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    OutSocket screenPipe;
-    OutSocket audioPipe;
-    InSocket inputPipe;
+    Socket screenPipe;
+    Socket audioPipe;
+    Socket inputPipe;
     std::cout << "screen: :" << screenPipe.port << std::endl;
     std::cout << "audio: :" << audioPipe.port << std::endl;
     std::cout << "input: :" << inputPipe.port << std::endl;

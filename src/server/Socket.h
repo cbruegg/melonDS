@@ -2,30 +2,35 @@
 // Created by mail on 08/05/2020.
 //
 
-#ifndef MELONDS_INSOCKET_H
-#define MELONDS_INSOCKET_H
+#ifndef MELONDS_SOCKET_H
+#define MELONDS_SOCKET_H
 
 
 #include <cstdio>
-#include <string>
 #include "../types.h"
 
 #ifdef _WIN32
+
 #include <windows.h>
 #include <cstdint>
 
 #endif
 
-class InSocket {
+class Socket {
 public:
-    explicit InSocket();
+    explicit Socket();
 
-    std::string readLine();
+    void writeData(u32 *data, size_t len);
+
+    void writeData(int16_t *data, size_t len);
 
     void closePipe();
 
-    int port;
+    void flushPipe();
 
+    std::string readLine();
+
+    int port;
 
 private:
 #ifdef _WIN32
@@ -39,7 +44,8 @@ private:
     void ensureAcceptedClient();
 
     void resetAndAcceptNewClient();
+
 };
 
 
-#endif //MELONDS_INSOCKET_H
+#endif //MELONDS_SOCKET_H
