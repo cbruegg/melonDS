@@ -46,6 +46,18 @@ Socket::Socket() {
         throw std::runtime_error("Could not create socket");
     }
 
+    int yes = 1;
+    int result = setsockopt(listenSock,
+                            IPPROTO_TCP,
+                            TCP_NODELAY,
+                            (char *) &yes,
+                            sizeof(int));    // 1 - on, 0 - off
+    if (result < 0) {
+        int lastError = LASTERR();
+        std::cerr << "Could not set NODELAY on socket, error " << lastError << std::endl;
+        throw std::runtime_error("Could not set NODELAY on socket");
+    }
+
     sockaddr_in saServer{};
     saServer.sin_family = AF_INET;
     saServer.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -98,20 +110,55 @@ void Socket::resetAndAcceptNewClient() {
     ensureAcceptedClient();
 }
 
-void Socket::writeData(u32 *data, size_t len) {
+int sendWrapper(SOCKET socket, void *dataToSend, size_t oneElemSize, int n) {
+    char *data = (char *) dataToSend;
+    auto remaining = oneElemSize * n;
+    do {
+        int rc = send(socket, data, remaining, 0);
+        if (rc == SOCKET_ERROR) {
+            return SOCKET_ERROR;
+        } else {
+            data += rc;
+            remaining -= rc;
+        }
+    } while (remaining > 0);
+    return 0;
+}
+
+void Socket::writeData(u32 *data, int n) {
     ensureAcceptedClient();
-    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(u32) / sizeof(char), 0) ==
-           SOCKET_ERROR) {
+    while (sendWrapper(clientSock, data, sizeof(u32), n) == SOCKET_ERROR) {
         resetAndAcceptNewClient();
     }
 }
 
-void Socket::writeData(int16_t *data, size_t len) {
+void Socket::writeData(int16_t *data, int n) {
     ensureAcceptedClient();
-    while (send(clientSock, reinterpret_cast<const char *>(data), len * sizeof(int16_t) / sizeof(char), 0) ==
-           SOCKET_ERROR) {
+    while (sendWrapper(clientSock, data, sizeof(int16_t), n) == SOCKET_ERROR) {
         resetAndAcceptNewClient();
     }
+}
+
+int receive_int(int *num, SOCKET fd) {
+    int32_t ret;
+    char *data = (char *) &ret;
+    int left = sizeof(ret);
+    int rc;
+    do {
+        rc = recv(fd, data, left, 0);
+        if (rc <= 0) { /* instead of ret */
+            if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                // use select() or epoll() to wait for the socket to be readable again
+            } else if (errno != EINTR) {
+                return -1;
+            }
+        } else {
+            data += rc;
+            left -= rc;
+        }
+    } while (left > 0);
+    *num = ntohl(ret);
+    return 0;
 }
 
 void Socket::closePipe() {
@@ -132,7 +179,7 @@ void Socket::flushPipe() {
 std::string Socket::readLine() {
     std::string line;
 
-    char c = '0';
+    char c;
     do {
         while (recv(clientSock, &c, 1, 0) == SOCKET_ERROR) {
             resetAndAcceptNewClient();

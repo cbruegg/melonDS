@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
 
     std::mutex bufMutex;
 
-    const int singleScreenSize = 256 * 192 * 4; // BGRA8
+    const int singleScreenSize = 256 * 192; // BGRA8
     u32 *readyScreenBuffer = new u32[singleScreenSize * 2]{0};
     u32 *wipScreenBuffer = new u32[singleScreenSize * 2]{0};
 
@@ -220,12 +220,12 @@ int main(int argc, char **argv) {
         NDS::RunFrame();
 
         u32 availableBytes = SPU::GetOutputSize();
-        availableBytes = std::max(availableBytes, (u32) (sizeof(audioBuffer) / (2 * sizeof(int16_t))));
+        availableBytes = std::min(availableBytes, (u32) (sizeof(audioBuffer) / (2 * sizeof(int16_t))));
         int samplesToWrite = SPU::ReadOutput(audioBuffer, availableBytes);
-        audioPipe.writeData(audioBuffer, samplesToWrite * 4);
+        audioPipe.writeData(audioBuffer, samplesToWrite * 2);
 
-        memcpy(wipScreenBuffer, GPU::Framebuffer[GPU::FrontBuffer][0], singleScreenSize);
-        memcpy(wipScreenBuffer + singleScreenSize, GPU::Framebuffer[GPU::FrontBuffer][1], singleScreenSize);
+        memcpy(wipScreenBuffer, GPU::Framebuffer[GPU::FrontBuffer][0], singleScreenSize * sizeof(u32));
+        memcpy(wipScreenBuffer + singleScreenSize, GPU::Framebuffer[GPU::FrontBuffer][1], singleScreenSize  * sizeof(u32));
 
         bufMutex.lock();
         {

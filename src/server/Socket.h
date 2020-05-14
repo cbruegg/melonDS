@@ -20,9 +20,9 @@ class Socket {
 public:
     explicit Socket();
 
-    void writeData(u32 *data, size_t len);
+    void writeData(u32 *data, int n);
 
-    void writeData(int16_t *data, size_t len);
+    void writeData(int16_t *data, int n);
 
     void closePipe();
 
