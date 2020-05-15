@@ -225,7 +225,8 @@ int main(int argc, char **argv) {
         audioPipe.writeData(audioBuffer, samplesToWrite * 2);
 
         memcpy(wipScreenBuffer, GPU::Framebuffer[GPU::FrontBuffer][0], singleScreenSize * sizeof(u32));
-        memcpy(wipScreenBuffer + singleScreenSize, GPU::Framebuffer[GPU::FrontBuffer][1], singleScreenSize  * sizeof(u32));
+        memcpy(wipScreenBuffer + singleScreenSize, GPU::Framebuffer[GPU::FrontBuffer][1],
+               singleScreenSize * sizeof(u32));
 
         bufMutex.lock();
         {
@@ -238,14 +239,32 @@ int main(int argc, char **argv) {
         auto curEnd = std::chrono::system_clock::now();
         frames++;
         std::chrono::duration<double> elapsedSeconds = curEnd - globalStart;
+        auto end = Time::now();
+        std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
         if ((uint64_t) frames % 30 == 0) {
             auto fps = frames / elapsedSeconds.count();
             std::cout << "FPS: " << (int) fps << std::endl;
         }
 
-        auto end = Time::now();
-        ms elapsed = std::chrono::duration_cast<ms>(end - start);
-        sleepCp(emulationTargetFrameDurationMs / speedup - elapsed.count());
+        const auto sleepTimeUs = emulationTargetFrameDurationMs * 1000 / speedup - elapsed.count();
+        const auto sleepStart = Time::now();
+        if (false && sleepTimeUs > 2000) {
+            // TODO Find a cross-platform way to sleep reliably and accurately
+            sleepCp(sleepTimeUs * 1000);
+        } else if (sleepTimeUs > 0) {
+            // Not waiting for long, just spin
+            const auto target = Time::now() + std::chrono::microseconds(static_cast<uint64_t>(sleepTimeUs));
+            while (Time::now() < target) {
+                // Wait
+            }
+        }
+        const auto actualSleepTime = std::chrono::duration_cast<std::chrono::microseconds>(
+                Time::now() - sleepStart).count();
+
+        if ((uint64_t) frames % 30 == 0) {
+            std::cout << "sleepTime: " << sleepTimeUs << " actualSleepTime: " << actualSleepTime << std::endl;
+        }
     }
 
     screenPipe.closePipe();
