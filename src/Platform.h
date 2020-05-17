@@ -47,6 +47,8 @@ void StopEmu();
 FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);
 FILE* OpenDataFile(const char* path);
+size_t FileWrite(void* data, size_t size, size_t count, FILE* file);
+int FileClose(FILE* file);
 
 inline bool FileExists(const char* name)
 {

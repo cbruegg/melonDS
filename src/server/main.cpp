@@ -220,6 +220,8 @@ namespace Platform {
     }
 
     FILE *OpenFile(const char *path, const char *mode, bool mustexist) {
+        // TODO Intercept this, send to client
+
         FILE *ret;
 
         if (mustexist) {
@@ -238,6 +240,16 @@ namespace Platform {
 
     FILE *OpenDataFile(const char *path) {
         return fopen(path, "rb");
+    }
+
+    size_t FileWrite(void* data, size_t size, size_t count, FILE* file) {
+        // TODO Intercept this, send to client
+        fwrite(data, size, count, file);
+    }
+
+    int FileClose(FILE* file) {
+        // TODO Intercept this, send to client
+        fclose(file);
     }
 
     void *Thread_Create(void (*func)()) {

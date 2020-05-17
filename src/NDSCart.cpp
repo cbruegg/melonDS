@@ -445,8 +445,8 @@ void Write(u8 val, u32 hold)
         FILE* f = Platform::OpenFile(SRAMPath, "wb");
         if (f)
         {
-            fwrite(SRAM, SRAMLength, 1, f);
-            fclose(f);
+            Platform::FileWrite(SRAM, SRAMLength, 1, f);
+            Platform::FileClose(f);
         }
     }
 }
