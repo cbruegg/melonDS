@@ -125,6 +125,22 @@ int sendWrapper(SOCKET socket, void *dataToSend, size_t oneElemSize, int n) {
     return 0;
 }
 
+void Socket::writeSizeInBytes(u32 *data, int n) {
+    ensureAcceptedClient();
+    int64_t sizeInBytes = sizeof(u32) * n;
+    while (sendWrapper(clientSock, &sizeInBytes, sizeof(u32), 1) == SOCKET_ERROR) {
+        resetAndAcceptNewClient();
+    }
+}
+
+void Socket::writeSizeInBytes(int16_t *data, int n) {
+    ensureAcceptedClient();
+    int64_t sizeInBytes = sizeof(int16_t) * n;
+    while (sendWrapper(clientSock, &sizeInBytes, sizeof(u32), 1) == SOCKET_ERROR) {
+        resetAndAcceptNewClient();
+    }
+}
+
 void Socket::writeData(u32 *data, int n) {
     ensureAcceptedClient();
     while (sendWrapper(clientSock, data, sizeof(u32), n) == SOCKET_ERROR) {

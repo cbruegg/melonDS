@@ -20,6 +20,10 @@ class Socket {
 public:
     explicit Socket();
 
+    void writeSizeInBytes(u32 *data, int n);
+
+    void writeSizeInBytes(int16_t *data, int n);
+
     void writeData(u32 *data, int n);
 
     void writeData(int16_t *data, int n);

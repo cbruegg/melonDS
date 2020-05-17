@@ -22,11 +22,7 @@
 #include "CommandHandler.h"
 
 typedef std::chrono::high_resolution_clock Time;
-typedef std::chrono::milliseconds ms;
-typedef std::chrono::duration<float> fsec;
 
-const int videoFps = 60;
-const int videoFrameDurationMs = 1000 / videoFps;
 const int emulationTargetFps = 60;
 const int emulationTargetFrameDurationMs = 1000 / emulationTargetFps;
 
@@ -63,8 +59,6 @@ int main(int argc, char **argv) {
     std::mutex bufMutex;
 
     const int singleScreenSize = 256 * 192; // BGRA8
-    u32 *readyScreenBuffer = new u32[singleScreenSize * 2]{0};
-    u32 *wipScreenBuffer = new u32[singleScreenSize * 2]{0};
 
     const int audioBufferSize = 0x1000;
     int16_t audioBuffer[audioBufferSize] = {0}; // PCM16, 32768 Hz, 2 Channels, Interleaved
@@ -106,21 +100,6 @@ int main(int argc, char **argv) {
     double frames = 0;
 
     NDS::RunFrame();
-
-    std::thread writer([&screenPipe, &readyScreenBuffer, &audioPipe, &audioBuffer, &bufMutex, &stop]() {
-        while (!stop) {
-            auto start = Time::now();
-            bufMutex.lock();
-            {
-                screenPipe.writeData(readyScreenBuffer, singleScreenSize);
-                screenPipe.writeData(readyScreenBuffer + singleScreenSize, singleScreenSize);
-            }
-            bufMutex.unlock();
-            auto end = Time::now();
-            ms elapsed = std::chrono::duration_cast<ms>(end - start);
-            sleepCp(videoFrameDurationMs - elapsed.count());
-        }
-    });
 
     std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &touchX, &touchY]() {
         while (!stop) {
@@ -222,19 +201,11 @@ int main(int argc, char **argv) {
         u32 availableBytes = SPU::GetOutputSize();
         availableBytes = std::min(availableBytes, (u32) (sizeof(audioBuffer) / (2 * sizeof(int16_t))));
         int samplesToWrite = SPU::ReadOutput(audioBuffer, availableBytes);
+        audioPipe.writeSizeInBytes(audioBuffer, samplesToWrite * 2);
         audioPipe.writeData(audioBuffer, samplesToWrite * 2);
 
-        memcpy(wipScreenBuffer, GPU::Framebuffer[GPU::FrontBuffer][0], singleScreenSize * sizeof(u32));
-        memcpy(wipScreenBuffer + singleScreenSize, GPU::Framebuffer[GPU::FrontBuffer][1],
-               singleScreenSize * sizeof(u32));
-
-        bufMutex.lock();
-        {
-            u32 *tmp = readyScreenBuffer;
-            readyScreenBuffer = wipScreenBuffer;
-            wipScreenBuffer = tmp;
-        }
-        bufMutex.unlock();
+        screenPipe.writeData(GPU::Framebuffer[GPU::FrontBuffer][0], singleScreenSize);
+        screenPipe.writeData(GPU::Framebuffer[GPU::FrontBuffer][1], singleScreenSize);
 
         auto curEnd = std::chrono::system_clock::now();
         frames++;
