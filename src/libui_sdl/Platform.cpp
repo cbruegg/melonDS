@@ -322,6 +322,16 @@ FILE* OpenDataFile(const char* path)
 	return OpenLocalFile(path, "rb");
 }
 
+size_t FileWrite(void* data, size_t size, size_t count, FILE* file)
+{
+    fwrite(data, size, count, file);
+}
+
+int FileClose(FILE* file)
+{
+    fclose(file);
+}
+
 #endif
 
 
