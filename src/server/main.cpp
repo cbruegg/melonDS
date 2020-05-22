@@ -88,8 +88,10 @@ int main(int argc, char **argv) {
 
     std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &touchX, &touchY]() {
         while (!stop) {
+            std::cout << "Reading next command..." << std::endl;
             const auto line = inputPipe.readLine();
             if (line.empty()) {
+                std::cout << "Command was empty!" << std::endl;
                 continue;
             }
 

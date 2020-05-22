@@ -200,6 +200,9 @@ std::string Socket::readLine() {
         while (recv(clientSock, &c, 1, 0) == SOCKET_ERROR) {
             resetAndAcceptNewClient();
         }
+        if (c != '\n') {
+            line += c;
+        }
     } while (c != '\n');
     return line;
 }
