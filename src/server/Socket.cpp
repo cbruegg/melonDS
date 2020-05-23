@@ -99,6 +99,33 @@ Socket::Socket() {
 void Socket::ensureAcceptedClient() {
     while (clientSock == -1) {
         clientSock = accept(this->listenSock, nullptr, nullptr);
+
+        int yes = 1;
+        int result = setsockopt(clientSock,
+                                IPPROTO_TCP,
+                                TCP_NODELAY,
+                                (char *) &yes,
+                                sizeof(int));    // 1 - on, 0 - off
+        if (result < 0) {
+            int lastError = LASTERR();
+            std::cerr << "Could not set NODELAY on socket, error " << lastError << std::endl;
+            throw std::runtime_error("Could not set NODELAY on socket");
+        }
+
+        int bufSize = 1;
+        result = setsockopt(clientSock, SOL_SOCKET, SO_SNDBUF, (char*) &bufSize, sizeof(int));
+        if (result < 0) {
+            int lastError = LASTERR();
+            std::cerr << "Could not set SO_SNDBUF to 1 on socket, error " << lastError << std::endl;
+            throw std::runtime_error("Could not set SO_SNDBUF to 1 on socket");
+        }
+
+        result = setsockopt(clientSock, SOL_SOCKET, SO_RCVBUF, (char*) &bufSize, sizeof(int));
+        if (result < 0) {
+            int lastError = LASTERR();
+            std::cerr << "Could not set SO_RCVBUF to 1 on socket, error " << lastError << std::endl;
+            throw std::runtime_error("Could not set SO_RCVBUF to 1 on socket");
+        }
     }
 }
 

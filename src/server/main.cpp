@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
 #endif
 
     std::mutex bufMutex;
+    std::mutex inputMutex;
 
     const int singleScreenSize = 256 * 192; // BGRA8
 
@@ -54,7 +55,8 @@ int main(int argc, char **argv) {
 
     std::atomic<double> speedup(1.0);
     std::atomic<bool> stop(false);
-    std::atomic<uint32_t> activatedInputs(0);
+    uint32_t activatedInputs = 0;
+    uint32_t deactivatedInputs = 0;
     std::atomic<u16> touchX(0);
     std::atomic<u16> touchY(0);
 
@@ -86,7 +88,7 @@ int main(int argc, char **argv) {
 
     NDS::RunFrame();
 
-    std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &touchX, &touchY]() {
+    std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &deactivatedInputs, &touchX, &touchY, &inputMutex]() {
         while (!stop) {
             std::cout << "Reading next command..." << std::endl;
             const auto line = inputPipe.readLine();
@@ -108,7 +110,10 @@ int main(int argc, char **argv) {
             } else if (commandType == &CommandType::ActivateInput) {
                 const auto data = static_cast<ActivateInputCommandData *>(command.commandData);
                 std::cout << "Received ActivateInput " << data->input << " " << data->value << std::endl;
+                inputMutex.lock();
                 activatedInputs |= (uint32_t) data->input;
+                deactivatedInputs &= ~((uint32_t) data->input);
+                inputMutex.unlock();
 
                 switch (data->input) {
                     case MelonDSGameInputTouchScreenX:
@@ -122,19 +127,16 @@ int main(int argc, char **argv) {
             } else if (commandType == &CommandType::DeactivateInput) {
                 const auto data = static_cast<DeactivateInputCommandData *>(command.commandData);
                 std::cout << "Received DeactivateInput " << data->input << std::endl;
-                activatedInputs &= ~((uint32_t) data->input);
-                switch (data->input) {
-                    case MelonDSGameInputTouchScreenX:
-                        touchX = 0;
-                        break;
-                    case MelonDSGameInputTouchScreenY:
-                        touchY = 0;
-                        break;
-                }
+                inputMutex.lock();
+                deactivatedInputs |= (uint32_t) data->input;
+                inputMutex.unlock();
                 delete data;
             } else if (commandType == &CommandType::ResetInput) {
                 std::cout << "Received ResetInput" << std::endl;
+                inputMutex.lock();
                 activatedInputs = 0;
+                deactivatedInputs = 0;
+                inputMutex.unlock();
                 touchX = 0;
                 touchY = 0;
             } else if (commandType == &CommandType::SaveGameSave) {
@@ -163,7 +165,9 @@ int main(int argc, char **argv) {
     while (!stop) {
         auto start = Time::now();
 
-        auto inputs = activatedInputs.load();
+        inputMutex.lock();
+        auto inputs = activatedInputs;
+        inputMutex.unlock();
         for (uint8_t i = 0; i < 12; i++) {
             uint8_t key = i > 9 ? i + 6 : i;
             bool isActivated = ((inputs >> i) & 1u) != 0;
@@ -175,8 +179,10 @@ int main(int argc, char **argv) {
             }
         }
 
+        const auto localTouchX = touchX.load();
+        const auto localTouchY = touchY.load();
         if (inputs & MelonDSGameInputTouchScreenX || inputs & MelonDSGameInputTouchScreenY) {
-            NDS::TouchScreen(touchX, touchY);
+            NDS::TouchScreen(localTouchX, localTouchY);
             NDS::PressKey(16 + 6);
         } else {
             NDS::ReleaseScreen();
@@ -184,6 +190,11 @@ int main(int argc, char **argv) {
         }
 
         NDS::RunFrame();
+
+        inputMutex.lock();
+        activatedInputs &= ~(deactivatedInputs);
+        deactivatedInputs = 0;
+        inputMutex.unlock();
 
         u32 availableBytes = SPU::GetOutputSize();
         availableBytes = std::min(availableBytes, (u32) (sizeof(audioBuffer) / (2 * sizeof(int16_t))));
@@ -213,6 +224,8 @@ int main(int argc, char **argv) {
 #ifdef _WIN32
     WSACleanup();
 #endif
+
+    return 0;
 }
 
 namespace Platform {
@@ -246,12 +259,12 @@ namespace Platform {
 
     size_t FileWrite(void* data, size_t size, size_t count, FILE* file) {
         // TODO Intercept this, send to client
-        fwrite(data, size, count, file);
+        return fwrite(data, size, count, file);
     }
 
     int FileClose(FILE* file) {
         // TODO Intercept this, send to client
-        fclose(file);
+        return fclose(file);
     }
 
     void *Thread_Create(void (*func)()) {
