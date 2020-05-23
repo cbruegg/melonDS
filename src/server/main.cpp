@@ -86,8 +86,6 @@ int main(int argc, char **argv) {
     auto globalStart = std::chrono::system_clock::now();
     double frames = 0;
 
-    NDS::RunFrame();
-
     std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &deactivatedInputs, &touchX, &touchY, &inputMutex]() {
         while (!stop) {
             std::cout << "Reading next command..." << std::endl;
@@ -161,6 +159,13 @@ int main(int argc, char **argv) {
             }
         }
     });
+
+    // Write one blank frame. This ensures we wait until the client started reading before we call RunFrame.
+    // This is to avoid calling RunFrame before the client uploaded a save file.
+    audioPipe.writeSizeInBytes(audioBuffer, 1);
+    audioPipe.writeData(audioBuffer, 1);
+    u32 blackScreen[singleScreenSize * 2] = {0};
+    screenPipe.writeData(blackScreen, sizeof(blackScreen));
 
     while (!stop) {
         auto start = Time::now();
