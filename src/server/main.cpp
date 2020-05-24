@@ -86,86 +86,87 @@ int main(int argc, char **argv) {
     auto globalStart = std::chrono::system_clock::now();
     double frames = 0;
 
-    std::thread commandReader([&inputPipe, &speedup, &stop, &activatedInputs, &deactivatedInputs, &touchX, &touchY, &inputMutex]() {
-        while (!stop) {
-            std::cout << "Reading next command..." << std::endl;
-            const auto line = inputPipe.readLine();
-            if (line.empty()) {
-                std::cout << "Command was empty!" << std::endl;
-                continue;
-            }
+    std::thread commandReader(
+            [&inputPipe, &speedup, &stop, &activatedInputs, &deactivatedInputs, &touchX, &touchY, &inputMutex, &saveGamePath]() {
+                while (!stop) {
+                    const auto line = inputPipe.readLine();
+                    if (line.empty()) {
+                        std::cout << "Command was empty!" << std::endl;
+                        continue;
+                    }
 
-            const auto command = parseCommand(line);
-            const auto commandType = &command.commandType;
+                    const auto command = parseCommand(line);
+                    const auto commandType = &command.commandType;
 
-            if (commandType == &CommandType::Stop) {
-                std::cout << "Received Stop" << std::endl;
-                stop = true;
-            } else if (commandType == &CommandType::Pause) {
-                std::cout << "Received Pause" << std::endl;
-            } else if (commandType == &CommandType::Resume) {
-                std::cout << "Received Resume" << std::endl;
-            } else if (commandType == &CommandType::ActivateInput) {
-                const auto data = static_cast<ActivateInputCommandData *>(command.commandData);
-                std::cout << "Received ActivateInput " << data->input << " " << data->value << std::endl;
-                inputMutex.lock();
-                activatedInputs |= (uint32_t) data->input;
-                deactivatedInputs &= ~((uint32_t) data->input);
-                inputMutex.unlock();
+                    if (commandType == &CommandType::Stop) {
+                        std::cout << "Received Stop" << std::endl;
+                        stop = true;
+                    } else if (commandType == &CommandType::Pause) {
+                        std::cout << "Received Pause" << std::endl;
+                    } else if (commandType == &CommandType::Resume) {
+                        std::cout << "Received Resume" << std::endl;
+                    } else if (commandType == &CommandType::ActivateInput) {
+                        const auto data = static_cast<ActivateInputCommandData *>(command.commandData);
+                        std::cout << "Received ActivateInput " << data->input << " " << data->value << std::endl;
+                        inputMutex.lock();
+                        activatedInputs |= (uint32_t) data->input;
+                        deactivatedInputs &= ~((uint32_t) data->input);
+                        inputMutex.unlock();
 
-                switch (data->input) {
-                    case MelonDSGameInputTouchScreenX:
-                        touchX = data->value * (256 - 1);
-                        break;
-                    case MelonDSGameInputTouchScreenY:
-                        touchY = data->value * (192 - 1);
-                        break;
+                        switch (data->input) {
+                            case MelonDSGameInputTouchScreenX:
+                                touchX = data->value * (256 - 1);
+                                break;
+                            case MelonDSGameInputTouchScreenY:
+                                touchY = data->value * (192 - 1);
+                                break;
+                        }
+                        delete data;
+                    } else if (commandType == &CommandType::DeactivateInput) {
+                        const auto data = static_cast<DeactivateInputCommandData *>(command.commandData);
+                        std::cout << "Received DeactivateInput " << data->input << std::endl;
+                        inputMutex.lock();
+                        deactivatedInputs |= (uint32_t) data->input;
+                        inputMutex.unlock();
+                        delete data;
+                    } else if (commandType == &CommandType::ResetInput) {
+                        std::cout << "Received ResetInput" << std::endl;
+                        inputMutex.lock();
+                        activatedInputs = 0;
+                        deactivatedInputs = 0;
+                        inputMutex.unlock();
+                        touchX = 0;
+                        touchY = 0;
+                    } else if (commandType == &CommandType::SaveGameSave) {
+                        std::cout << "Received SaveGameSave" << std::endl;
+                    } else if (commandType == &CommandType::LoadGameSave) {
+                        std::cout << "Received LoadGameSave" << std::endl;
+                        NDS::RelocateSave(saveGamePath.c_str(), false);
+                    } else if (commandType == &CommandType::SaveState) {
+                        std::cout << "Received SaveState" << std::endl;
+                    } else if (commandType == &CommandType::LoadState) {
+                        std::cout << "Received LoadState" << std::endl;
+                    } else if (commandType == &CommandType::AddCheat) {
+                        std::cout << "Received AddCheat" << std::endl;
+                    } else if (commandType == &CommandType::ResetCheats) {
+                        std::cout << "Received ResetCheats" << std::endl;
+                    } else if (commandType == &CommandType::SetSpeed) {
+                        const auto data = static_cast<SetSpeedCommandData *>(command.commandData);
+                        std::cout << "Received SetSpeed " << data->speed << std::endl;
+                        speedup = data->speed;
+                        delete data;
+                    } else if (commandType == &CommandType::Malformed) {
+                        std::cerr << "Received malformed command!" << std::endl;
+                    }
                 }
-                delete data;
-            } else if (commandType == &CommandType::DeactivateInput) {
-                const auto data = static_cast<DeactivateInputCommandData *>(command.commandData);
-                std::cout << "Received DeactivateInput " << data->input << std::endl;
-                inputMutex.lock();
-                deactivatedInputs |= (uint32_t) data->input;
-                inputMutex.unlock();
-                delete data;
-            } else if (commandType == &CommandType::ResetInput) {
-                std::cout << "Received ResetInput" << std::endl;
-                inputMutex.lock();
-                activatedInputs = 0;
-                deactivatedInputs = 0;
-                inputMutex.unlock();
-                touchX = 0;
-                touchY = 0;
-            } else if (commandType == &CommandType::SaveGameSave) {
-                std::cout << "Received SaveGameSave" << std::endl;
-            } else if (commandType == &CommandType::LoadGameSave) {
-                std::cout << "Received LoadGameSave" << std::endl;
-            } else if (commandType == &CommandType::SaveState) {
-                std::cout << "Received SaveState" << std::endl;
-            } else if (commandType == &CommandType::LoadState) {
-                std::cout << "Received LoadState" << std::endl;
-            } else if (commandType == &CommandType::AddCheat) {
-                std::cout << "Received AddCheat" << std::endl;
-            } else if (commandType == &CommandType::ResetCheats) {
-                std::cout << "Received ResetCheats" << std::endl;
-            } else if (commandType == &CommandType::SetSpeed) {
-                const auto data = static_cast<SetSpeedCommandData *>(command.commandData);
-                std::cout << "Received SetSpeed " << data->speed << std::endl;
-                speedup = data->speed;
-                delete data;
-            } else if (commandType == &CommandType::Malformed) {
-                std::cerr << "Received malformed command!" << std::endl;
-            }
-        }
-    });
+            });
 
     // Write one blank frame. This ensures we wait until the client started reading before we call RunFrame.
     // This is to avoid calling RunFrame before the client uploaded a save file.
-    audioPipe.writeSizeInBytes(audioBuffer, 1);
-    audioPipe.writeData(audioBuffer, 1);
+    audioPipe.writeSizeInBytes(audioBuffer, 0);
+    // audioPipe.writeData(audioBuffer, 0);
     u32 blackScreen[singleScreenSize * 2] = {0};
-    screenPipe.writeData(blackScreen, sizeof(blackScreen));
+    screenPipe.writeData(blackScreen, singleScreenSize * 2);
 
     while (!stop) {
         auto start = Time::now();
@@ -216,7 +217,7 @@ int main(int argc, char **argv) {
         auto end = Time::now();
         std::chrono::microseconds elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-        if ((uint64_t) frames % 30 == 0) {
+        if ((uint64_t) frames % 60 == 0) {
             auto fps = frames / elapsedSeconds.count();
             std::cout << "FPS: " << (int) fps << std::endl;
         }
@@ -240,8 +241,6 @@ namespace Platform {
     }
 
     FILE *OpenFile(const char *path, const char *mode, bool mustexist) {
-        // TODO Intercept this, send to client
-
         FILE *ret;
 
         if (mustexist) {
@@ -262,13 +261,11 @@ namespace Platform {
         return fopen(path, "rb");
     }
 
-    size_t FileWrite(void* data, size_t size, size_t count, FILE* file) {
-        // TODO Intercept this, send to client
+    size_t FileWrite(void *data, size_t size, size_t count, FILE *file) {
         return fwrite(data, size, count, file);
     }
 
-    int FileClose(FILE* file) {
-        // TODO Intercept this, send to client
+    int FileClose(FILE *file) {
         return fclose(file);
     }
 
