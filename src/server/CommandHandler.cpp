@@ -60,7 +60,6 @@ Command parseCommand(const std::string &line) {
     const CommandType *commandType = &CommandType::Malformed;
     for (const auto commandTypeCandidate : CommandType::VALUES) {
         if (commandTypeStr.find(commandTypeCandidate->id) != std::string::npos) {
-            std::cout << "Found " << commandTypeCandidate->id << std::endl;
             commandType = commandTypeCandidate;
             break;
         }

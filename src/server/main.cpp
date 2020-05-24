@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
 
     std::mutex bufMutex;
     std::mutex inputMutex;
+    std::mutex ndsMutex;
 
     const int singleScreenSize = 256 * 192; // BGRA8
 
@@ -87,7 +88,7 @@ int main(int argc, char **argv) {
     double frames = 0;
 
     std::thread commandReader(
-            [&inputPipe, &speedup, &stop, &activatedInputs, &deactivatedInputs, &touchX, &touchY, &inputMutex, &saveGamePath]() {
+            [&]() {
                 while (!stop) {
                     const auto line = inputPipe.readLine();
                     if (line.empty()) {
@@ -141,21 +142,27 @@ int main(int argc, char **argv) {
                         std::cout << "Received SaveGameSave" << std::endl;
                     } else if (commandType == &CommandType::LoadGameSave) {
                         std::cout << "Received LoadGameSave" << std::endl;
+                        ndsMutex.lock();
                         NDS::RelocateSave(saveGamePath.c_str(), false);
+                        ndsMutex.unlock();
                     } else if (commandType == &CommandType::SaveState) {
                         const auto data = static_cast<SaveStateCommandData *>(command.commandData);
                         std::cout << "Received SaveState " << data->file << std::endl;
 
                         auto savestate = Savestate(data->file.c_str(), true);
+                        ndsMutex.lock();
                         NDS::DoSavestate(&savestate);
+                        ndsMutex.unlock();
 
                         delete data;
                     } else if (commandType == &CommandType::LoadState) {
-                        const auto data = static_cast<SaveStateCommandData *>(command.commandData);
+                        const auto data = static_cast<LoadStateCommandData *>(command.commandData);
                         std::cout << "Received LoadState " << data->file << std::endl;
 
                         auto savestate = Savestate(data->file.c_str(), false);
+                        ndsMutex.lock();
                         NDS::DoSavestate(&savestate);
+                        ndsMutex.unlock();
 
                         delete data;
                     } else if (commandType == &CommandType::AddCheat) {
@@ -190,6 +197,8 @@ int main(int argc, char **argv) {
         inputMutex.lock();
         auto inputs = activatedInputs;
         inputMutex.unlock();
+
+        ndsMutex.lock();
         for (uint8_t i = 0; i < 12; i++) {
             uint8_t key = i > 9 ? i + 6 : i;
             bool isActivated = ((inputs >> i) & 1u) != 0;
@@ -212,6 +221,8 @@ int main(int argc, char **argv) {
         }
 
         NDS::RunFrame();
+
+        ndsMutex.unlock();
 
         inputMutex.lock();
         activatedInputs &= ~(deactivatedInputs);
