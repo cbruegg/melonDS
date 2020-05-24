@@ -268,6 +268,7 @@ namespace Platform {
     }
 
     FILE *OpenFile(const char *path, const char *mode, bool mustexist) {
+        // std::cout << "OpenFile(" << path << ", " << mode << ", " << mustexist << ")" << std::endl;
         FILE *ret;
 
         if (mustexist) {
