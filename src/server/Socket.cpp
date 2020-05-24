@@ -113,14 +113,14 @@ void Socket::ensureAcceptedClient() {
         }
 
         int bufSize = 1;
-        result = setsockopt(clientSock, SOL_SOCKET, SO_SNDBUF, (char*) &bufSize, sizeof(int));
+        result = setsockopt(clientSock, SOL_SOCKET, SO_SNDBUF, (char *) &bufSize, sizeof(int));
         if (result < 0) {
             int lastError = LASTERR();
             std::cerr << "Could not set SO_SNDBUF to 1 on socket, error " << lastError << std::endl;
             throw std::runtime_error("Could not set SO_SNDBUF to 1 on socket");
         }
 
-        result = setsockopt(clientSock, SOL_SOCKET, SO_RCVBUF, (char*) &bufSize, sizeof(int));
+        result = setsockopt(clientSock, SOL_SOCKET, SO_RCVBUF, (char *) &bufSize, sizeof(int));
         if (result < 0) {
             int lastError = LASTERR();
             std::cerr << "Could not set SO_RCVBUF to 1 on socket, error " << lastError << std::endl;
@@ -232,4 +232,9 @@ std::string Socket::readLine() {
         }
     } while (c != '\n');
     return line;
+}
+
+void Socket::writeConfirmation() {
+    u32 confirmationData[256 / 4] = {0};
+    writeData(confirmationData, 256 / 4);
 }

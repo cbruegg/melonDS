@@ -37,8 +37,9 @@ class Command {
 public:
     const CommandType &commandType;
     void *commandData;
+    const bool requiresConfirmation;
 
-    Command(const CommandType &commandType, void *commandData);
+    Command(const CommandType &commandType, void *commandData, bool requiresConfirmation);
 };
 
 class SetSpeedCommandData {
@@ -61,6 +62,20 @@ public:
     const int input;
 
     DeactivateInputCommandData(const int value);
+};
+
+class LoadStateCommandData {
+public:
+    const std::string file;
+
+    LoadStateCommandData(std::string file);
+};
+
+class SaveStateCommandData {
+public:
+    const std::string file;
+
+    SaveStateCommandData(std::string file);
 };
 
 Command parseCommand(const std::string &line);

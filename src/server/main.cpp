@@ -143,9 +143,21 @@ int main(int argc, char **argv) {
                         std::cout << "Received LoadGameSave" << std::endl;
                         NDS::RelocateSave(saveGamePath.c_str(), false);
                     } else if (commandType == &CommandType::SaveState) {
-                        std::cout << "Received SaveState" << std::endl;
+                        const auto data = static_cast<SaveStateCommandData *>(command.commandData);
+                        std::cout << "Received SaveState " << data->file << std::endl;
+
+                        auto savestate = Savestate(data->file.c_str(), true);
+                        NDS::DoSavestate(&savestate);
+
+                        delete data;
                     } else if (commandType == &CommandType::LoadState) {
-                        std::cout << "Received LoadState" << std::endl;
+                        const auto data = static_cast<SaveStateCommandData *>(command.commandData);
+                        std::cout << "Received LoadState " << data->file << std::endl;
+
+                        auto savestate = Savestate(data->file.c_str(), false);
+                        NDS::DoSavestate(&savestate);
+
+                        delete data;
                     } else if (commandType == &CommandType::AddCheat) {
                         std::cout << "Received AddCheat" << std::endl;
                     } else if (commandType == &CommandType::ResetCheats) {
@@ -157,6 +169,10 @@ int main(int argc, char **argv) {
                         delete data;
                     } else if (commandType == &CommandType::Malformed) {
                         std::cerr << "Received malformed command!" << std::endl;
+                    }
+
+                    if (command.requiresConfirmation) {
+                        inputPipe.writeConfirmation();
                     }
                 }
             });

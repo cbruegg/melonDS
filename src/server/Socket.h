@@ -36,6 +36,8 @@ public:
 
     int port;
 
+    void writeConfirmation();
+
 private:
 #ifdef _WIN32
     SOCKET listenSock;
